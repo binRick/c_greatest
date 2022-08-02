@@ -1,52 +1,137 @@
-# Warning flags for C and C++:
-COMMON_FLAGS += -Wall -Wextra -pedantic -Werror
-COMMON_FLAGS += -Wmissing-declarations -g
-#COMMON_FLAGS += -Weverything
+default: all
+##############################################################
+PASSH=$(shell command -v passh)
+GIT=$(shell command -v git)
+SED=$(shell command -v gsed||command -v sed)
+NODEMON=$(shell command -v nodemon)
+FZF=$(shell command -v fzf)
+BLINE=$(shell command -v bline)
+UNCRUSTIFY=$(shell command -v uncrustify)
+PWD=$(shell command -v pwd)
+FIND=$(shell command -v find)
+EMBED_BINARY=$(shell command -v embed)
+JQ_BIN=$(shell command -v jq)
+##############################################################
+DIR=$(shell $(PWD))
+M1_DIR=$(DIR)
+LOADER_DIR=$(DIR)/loader
+EMBEDS_DIR=$(DIR)/embeds
+VENDOR_DIR=$(DIR)/vendor
+PROJECT_DIR=$(DIR)
+MESON_DEPS_DIR=$(DIR)/meson/deps
+VENDOR_DIR=$(DIR)/vendor
+DEPS_DIR=$(DIR)/deps
+BUILD_DIR=$(DIR)/build
+ETC_DIR=$(DIR)/etc
+MENU_DIR=$(DIR)/menu
+DOCKER_DIR=$(DIR)/docker
+LIST_DIR=$(DIR)/list
+SOURCE_VENV_CMD=$(DIR)/scripts
+VENV_DIR=$(DIR)/.venv
+SCRIPTS_DIR=$(DIR)/scripts
+ACTIVE_APP_DIR=$(DIR)/active-window
+SOURCE_VENV_CMD = source $(VENV_DIR)/bin/activate
+CREATE_PALETTE_INCLUDES_SCRIPT := scripts/create-palette-includes-c.sh
+##############################################################
+TIDIED_FILES = \
+			   */*.h */*.c
+##############################################################
+all: build muon test
 
-CFLAGS += ${COMMON_FLAGS}
-CPPFLAGS += ${COMMON_FLAGS}
+do-muon: do-muon-setup do-muon-build
 
-# These warnings are not valid for C++:
-CFLAGS += -Wmissing-prototypes
-CFLAGS += -Wstrict-prototypes
+do-muon-setup:
+	@muon setup build-muon
 
-PROGRAMS_C=	example example_no_suite example_no_runner \
-		example_shuffle example_trunc
-PROGRAMS_CPP=	example_cpp
+do-muon-clean:
+	@rm -rf build-muon
 
-# Uncomment to demo c99 parametric testing.
-#CFLAGS += -std=c99
+do-muon-build:
+	@muon samu -C build-muon
 
-# Uncomment to enable setjmp()/longjmp().
-#CFLAGS += -DGREATEST_USE_LONGJMP=1
+do-muon-install:
+	@cd build-muon && muon install
 
-# Uncomment to disable clock() / time.h.
-#CFLAGS += -DGREATEST_USE_TIME=0
+do-muon-test:
+	@cd build-muon && muon test
 
-all: all_c
+build-muon: do-muon-setup do-muon-build do-muon-test
+muon: do-muon-setup do-muon-build
 
-all_c: ${PROGRAMS_C}
-all_cpp: ${PROGRAMS_CPP}
+debug-palette-includes-c:
+	@env DEBUG_MODE=1 $(CREATE_PALETTE_INCLUDES_SCRIPT)
 
-example: example.o example_suite.o
-example_no_suite: example_no_suite.o
-example_no_runner: example_no_runner.o
-example_shuffle: example_shuffle.o
-example_trunc: example_trunc.o
+view-palette-includes-c:
+	@env $(CREATE_PALETTE_INCLUDES_SCRIPT)
 
-*.o: greatest.h Makefile
 
-example_cpp: example_cpp.cpp greatest.h Makefile
-	${CXX} -o $@ example_cpp.cpp ${CPPFLAGS} ${LDFLAGS}
+clean: do-muon-clean
+	@rm -rf build .cache
+muon: do-muon
+do-meson: 
+	@eval cd . && {  meson build || { meson build --reconfigure || { meson build --wipe; } && meson build; }; }
+do-install: all
+	@meson install -C build
+do-build:
+	@meson compile -C build
+do-test:
+	@passh meson test -C build -v --print-errorlogs
+install: do-install
+test: do-test
+build: do-meson do-build muon
+uncrustify:
+	@$(UNCRUSTIFY) -c submodules/c_deps/etc/uncrustify.cfg --replace $(TIDIED_FILES) 
+uncrustify-clean:
+	@find  . -type f -name "*unc-back*"|xargs -I % unlink %
+fix-dbg:
+	@$(SED) 's|, % s);|, %s);|g' -i $(TIDIED_FILES)
+	@$(SED) 's|, % lu);|, %lu);|g' -i $(TIDIED_FILES)
+	@$(SED) 's|, % d);|, %d);|g' -i $(TIDIED_FILES)
+	@$(SED) 's|, % zu);|, %zu);|g' -i $(TIDIED_FILES)
+	@$(SED) 's|, % llu);|, %llu);|g' -i $(TIDIED_FILES)
+rm-make-logs:
+	@rm .make-log* 2>/dev/null||true
+tidy: rm-make-logs uncrustify uncrustify-clean fix-dbg
 
-%.o: %.c
-	${CC} -c -o $@ ${CFLAGS} $<
+dev-all: all
 
-%.o: %.cpp
-	${CXX} -c -o $@ ${CPPFLAGS} $<
+pull:
+	@git pull
 
-%: %.o
-	${CC} -o $@ ${LDFLAGS} $^
+dev: nodemon
+nodemon:
+	@$(PASSH) -L .nodemon.log $(NODEMON) -i build \
+		--delay 1 \
+		-w submodules/c_deps/exec-fzf/exec-fzf.c \
+		-w submodules/c_deps/exec-fzf/exec-fzf.h \
+		-w meson.build \
+		-w "greatest/greatest.c" -w greatest/greatest.h -w greatest-test/greatest-test.c -w greatest-test/greatest-test.h -w greatest/meson.build -w greatest/meson.build \
+		-w Makefile \
+		-w "*/*.c" -w "*/*.h" -w Makefle -w "*/meson.build" \
+		-e j2,c,h,sh,Makefile,build \
+			-x sh -- -c 'passh make||true'
+meson-introspect-all:
+	@meson introspect --all -i meson.build
+meson-introspect-targets:
+	@meson introspect --targets -i meson.build
+meson-binaries:
+	@meson introspect --targets  meson.build -i | jq 'map(select(.type == "executable").filename)|flatten|join("\n")' -Mrc|xargs -I % echo ./build/%
+meson-binaries-loc:
+	@make meson-binaries|xargs -I % echo %.c|sort -u|xargs Loc --files|bline -a bold:green -r yellow -R 1-6
 
-clean:
-	rm -f ${PROGRAMS_C} ${PROGRAMS_CPP} *.o *.core
+do-pull-submodules-cmds:
+	@command find submodules -type d -maxdepth 1|xargs -I % echo -e "sh -c 'cd % && git pull'"
+run-binary:
+	@make meson-binaries | fzf --reverse | xargs -I % nodemon -w build --delay 1000 -x passh "./%"
+meson-tests-list:
+	@meson test -C build --list
+meson-tests:
+	@make meson-tests-list|fzf --reverse -m | xargs -I % env cmd="\
+		meson test --num-processes 1 -C build -v --no-stdsplit --print-errorlogs \"%\"" \
+			env bash -c '\
+	eval "$$cmd" && \
+	ansi -n --green --bold "OK" && \
+	echo -n "> " && \
+	ansi -n --yellow --italic "$$cmd" && \
+	echo \
+'	
