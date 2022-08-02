@@ -82,7 +82,6 @@ int main(int argc, char **argv) {
 /*********************************************************************/
 
 
-#include "parson/parson.h"
 #include <ctype.h>
 #include <dirent.h>
 #include <getopt.h>
@@ -1171,35 +1170,34 @@ clear:                                                                          
   }                                                                \
                                                                    \
 /* Report passes, failures, skipped tests, the number of \
- * assertions, and the overall run time. */                                      \
-  void GREATEST_PRINT_REPORT(void) {                                             \
-    if (!GREATEST_LIST_ONLY()) {                                                 \
-      update_counts_and_reset_suite();                                           \
-      GREATEST_SET_TIME(greatest_info.end);                                      \
-      if (GREATEST_IS_JSON_MODE()) {                                             \
-        GREATEST_FPRINTF(GREATEST_STDOUT, "\n%s\n", greatest_get_json_report()); \
-      }else{                                                                     \
-        GREATEST_FPRINTF(GREATEST_STDOUT,                                        \
-                         "\nTotal: %u test%s",                                   \
-                         greatest_info.tests_run,                                \
-                         greatest_info.tests_run == 1 ? "" : "s");               \
-        GREATEST_CLOCK_DIFF(greatest_info.begin,                                 \
-                            greatest_info.end);                                  \
-        GREATEST_FPRINTF(GREATEST_STDOUT, ", %u assertion%s\n",                  \
-                         greatest_info.assertions,                               \
-                         greatest_info.assertions == 1 ? "" : "s");              \
-        GREATEST_FPRINTF(GREATEST_STDOUT,                                        \
-                         "Pass: %u, fail: %u, skip: %u.\n",                      \
-                         greatest_info.passed,                                   \
-                         greatest_info.failed, greatest_info.skipped);           \
-      }                                                                          \
-    }                                                                            \
-  }                                                                              \
-                                                                                 \
-  greatest_type_info greatest_type_info_memory = {                               \
-    greatest_memory_equal_cb, greatest_memory_printf_cb,                         \
-  };                                                                             \
-                                                                                 \
+ * assertions, and the overall run time. */                            \
+  void GREATEST_PRINT_REPORT(void) {                                   \
+    if (!GREATEST_LIST_ONLY()) {                                       \
+      update_counts_and_reset_suite();                                 \
+      GREATEST_SET_TIME(greatest_info.end);                            \
+      if (GREATEST_IS_JSON_MODE()) {                                   \
+      }else{                                                           \
+        GREATEST_FPRINTF(GREATEST_STDOUT,                              \
+                         "\nTotal: %u test%s",                         \
+                         greatest_info.tests_run,                      \
+                         greatest_info.tests_run == 1 ? "" : "s");     \
+        GREATEST_CLOCK_DIFF(greatest_info.begin,                       \
+                            greatest_info.end);                        \
+        GREATEST_FPRINTF(GREATEST_STDOUT, ", %u assertion%s\n",        \
+                         greatest_info.assertions,                     \
+                         greatest_info.assertions == 1 ? "" : "s");    \
+        GREATEST_FPRINTF(GREATEST_STDOUT,                              \
+                         "Pass: %u, fail: %u, skip: %u.\n",            \
+                         greatest_info.passed,                         \
+                         greatest_info.failed, greatest_info.skipped); \
+      }                                                                \
+    }                                                                  \
+  }                                                                    \
+                                                                       \
+  greatest_type_info greatest_type_info_memory = {                     \
+    greatest_memory_equal_cb, greatest_memory_printf_cb,               \
+  };                                                                   \
+                                                                       \
   greatest_run_info greatest_info
 
 /* Handle command-line arguments, etc. */
@@ -1284,27 +1282,4 @@ clear:                                                                          
 #if defined (__cplusplus) && !defined (GREATEST_NO_EXTERN_CPLUSPLUS)
 }
 #endif
-
-
-static char *greatest_get_json_report(){
-  char        *s           = NULL;
-  JSON_Value  *root_value  = json_value_init_object();
-  JSON_Object *root_object = json_value_get_object(root_value);
-
-/*  json_object_dotset_number(root_object, "suite.tests_run", greatest_info.suite.tests_run);
- * json_object_dotset_number(root_object, "suite.passed", greatest_info.suite.passed);
- * json_object_dotset_number(root_object, "suite.skipped", greatest_info.suite.skipped);
- * json_object_dotset_number(root_object, "suite.failed", greatest_info.suite.failed);*/
-  json_object_dotset_number(root_object, "tests_run", greatest_info.tests_run);
-  json_object_dotset_number(root_object, "assertions", greatest_info.assertions);
-  json_object_dotset_number(root_object, "pid", getpid());
-  json_object_dotset_number(root_object, "time.end", greatest_info.end);
-  json_object_dotset_number(root_object, "time.begin", greatest_info.begin);
-  json_object_dotset_number(root_object, "terminal.width", greatest_info.width);
-  json_object_dotset_number(root_object, "end", greatest_info.end);
-  json_object_dotset_number(root_object, "duration.ms", GREATEST_CLOCK_DIFF(greatest_info.begin, greatest_info.end));
-
-  s = json_serialize_to_string_pretty(root_value);
-  return(s);
-}
 

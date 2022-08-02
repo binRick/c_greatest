@@ -9,7 +9,7 @@ greatest_include_dirs = [
 greatest_include_cargs = [
   ]
 greatest_test_deps = [
-  greatest_dep,
+  c_greatest_dep,
 ]
 if get_option('enable-binaries')
   greatest_test_exec = executable('greatest-test',
