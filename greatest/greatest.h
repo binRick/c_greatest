@@ -209,9 +209,10 @@ extern greatest_type_info greatest_type_info_string;
 extern greatest_type_info greatest_type_info_memory;
 
 typedef enum {
-  GREATEST_FLAG_FIRST_FAIL    = 0x01,
-  GREATEST_FLAG_LIST_ONLY     = 0x02,
-  GREATEST_FLAG_ABORT_ON_FAIL = 0x04
+  GREATEST_FLAG_FIRST_FAIL       = 0x01,
+  GREATEST_FLAG_LIST_TESTS_ONLY  = 0x02,
+  GREATEST_FLAG_ABORT_ON_FAIL    = 0x04,
+  GREATEST_FLAG_LIST_SUITES_ONLY = 0x08,
 } greatest_flag_t;
 
 /* Internal state for a PRNG, used to shuffle test order. */
@@ -325,7 +326,8 @@ void greatest_set_test_exclude(const char *filter);
 void greatest_set_exact_name_match(void);
 void greatest_stop_at_first_fail(void);
 void greatest_abort_on_fail(void);
-void greatest_list_only(void);
+void greatest_list_tests_only(void);
+void greatest_list_suites_only(void);
 void greatest_get_report(struct greatest_report_t *report);
 bool greatest_get_json_mode(void);
 void greatest_set_json_mode(bool json_mode);
@@ -417,8 +419,10 @@ typedef enum greatest_test_res {
 /* Check if the test runner is in verbose mode. */
 #define GREATEST_IS_VERBOSE()      ((greatest_info.verbosity) > 0)
 #define GREATEST_IS_JSON_MODE()    (greatest_info.json_mode == true)
-#define GREATEST_LIST_ONLY() \
-  (greatest_info.flags & GREATEST_FLAG_LIST_ONLY)
+#define GREATEST_LIST_TESTS_ONLY() \
+  (greatest_info.flags & GREATEST_FLAG_LIST_TESTS_ONLY)
+#define GREATEST_LIST_SUITES_ONLY() \
+  (greatest_info.flags & GREATEST_FLAG_LIST_SUITES_ONLY)
 #define GREATEST_FIRST_FAIL() \
   (greatest_info.flags & GREATEST_FLAG_FIRST_FAIL)
 #define GREATEST_ABORT_ON_FAIL() \
@@ -746,11 +750,13 @@ typedef enum greatest_test_res {
     greatest_buffer_test_name(name);                                                   \
     match = greatest_name_match(g->name_buf, g->test_filter, 1) &&                     \
             !greatest_name_match(g->name_buf, g->test_exclude, 0);                     \
-    if (GREATEST_LIST_ONLY()) {   /* just listing test names */                        \
+    if (GREATEST_LIST_SUITES_ONLY()) {                                                 \
+      goto clear;                                                                      \
+    }else if (GREATEST_LIST_TESTS_ONLY()) {                                            \
       if (match) {                                                                     \
         if (GREATEST_IS_JSON_MODE()) {                                                 \
         }else{                                                                         \
-          GREATEST_FPRINTF(GREATEST_STDOUT, "  %s\n", g->name_buf);                    \
+          GREATEST_FPRINTF(GREATEST_STDOUT, "%s\n", g->name_buf);                      \
         }                                                                              \
       }                                                                                \
       goto clear;                                                                      \
@@ -891,7 +897,9 @@ clear:                                                                          
     }                                                                                  \
     p->count_run++;                                                                    \
     update_counts_and_reset_suite();                                                   \
-    GREATEST_FPRINTF(GREATEST_STDOUT, "\n* Suite %s:\n", suite_name);                  \
+    if (GREATEST_LIST_SUITES_ONLY()) {                                                 \
+      GREATEST_FPRINTF(GREATEST_STDOUT, "%s\n", suite_name);                           \
+    }                                                                                  \
     GREATEST_SET_TIME(greatest_info.suite.pre_suite);                                  \
     return(1);                                                                         \
   }                                                                                    \
@@ -930,7 +938,8 @@ clear:                                                                          
     GREATEST_FPRINTF(GREATEST_STDOUT,                                                  \
                      "Usage: %s [-hlfavex] [-s SUITE] [-t TEST] [-x EXCLUDE]\n"        \
                      "  -h, --help  print this Help\n"                                 \
-                     "  -l          List suites and tests, then exit (dry run)\n"      \
+                     "  -l          List Tests, then exit (dry run)\n"                 \
+                     "  -L          List Suites, then exit (dry run)\n"                \
                      "  -j          Enable JSON Mode\n"                                \
                      "  -f          Stop runner after first failure\n"                 \
                      "  -a          Abort on first failure (implies -f)\n"             \
@@ -963,8 +972,10 @@ clear:                                                                          
           greatest_stop_at_first_fail(); break;                                        \
         case 'a':     /* abort() on fail flag */                                       \
           greatest_abort_on_fail(); break;                                             \
+        case 'L':     /* list only (dry run) */                                        \
+          greatest_list_suites_only(); break;                                          \
         case 'l':     /* list only (dry run) */                                        \
-          greatest_list_only(); break;                                                 \
+          greatest_list_tests_only(); break;                                           \
         case 'j':     /* first fail flag */                                            \
           greatest_info.json_mode = true; break;                                       \
         case 'v':     /* first fail flag */                                            \
@@ -1013,8 +1024,11 @@ clear:                                                                          
     greatest_set_flag(GREATEST_FLAG_ABORT_ON_FAIL);                                    \
   }                                                                                    \
                                                                                        \
-  void greatest_list_only(void) {                                                      \
-    greatest_set_flag(GREATEST_FLAG_LIST_ONLY);                                        \
+  void greatest_list_suites_only(void) {                                               \
+    greatest_set_flag(GREATEST_FLAG_LIST_SUITES_ONLY);                                 \
+  }                                                                                    \
+  void greatest_list_tests_only(void) {                                                \
+    greatest_set_flag(GREATEST_FLAG_LIST_TESTS_ONLY);                                  \
   }                                                                                    \
                                                                                        \
   void greatest_get_report(struct greatest_report_t *report) {                         \
@@ -1172,9 +1186,13 @@ clear:                                                                          
 /* Report passes, failures, skipped tests, the number of \
  * assertions, and the overall run time. */                            \
   void GREATEST_PRINT_REPORT(void) {                                   \
-    if (!GREATEST_LIST_ONLY()) {                                       \
+    if (!GREATEST_LIST_SUITES_ONLY()) {                                \
       update_counts_and_reset_suite();                                 \
       GREATEST_SET_TIME(greatest_info.end);                            \
+    }else if (!GREATEST_LIST_TESTS_ONLY()) {                           \
+      update_counts_and_reset_suite();                                 \
+      GREATEST_SET_TIME(greatest_info.end);                            \
+    }else{                                                             \
       if (GREATEST_IS_JSON_MODE()) {                                   \
       }else{                                                           \
         GREATEST_FPRINTF(GREATEST_STDOUT,                              \
