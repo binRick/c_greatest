@@ -1,4 +1,3 @@
-#pragma once
 #include "greatest/greatest.h"
 #include "parson.h"
 #include <ctype.h>
