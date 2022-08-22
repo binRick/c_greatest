@@ -17,12 +17,10 @@
 #include <unistd.h>
 extern greatest_run_info greatest_info;
 
-
 int greatest_export(void){
   puts("ok");
   return(0);
 }
-
 
 static char *greatest_get_json_report(){
   char        *s           = NULL;
@@ -45,4 +43,3 @@ static char *greatest_get_json_report(){
   s = json_serialize_to_string_pretty(root_value);
   return(s);
 }
-
