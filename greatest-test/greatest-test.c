@@ -21,11 +21,6 @@ TEST t_2(void){
   SKIP();
 }
 
-TEST t_3(void){
-  ASSERT_EQ(0, 0);
-  PASS();
-}
-
 SUITE(s_0){
   RUN_TEST(t_0);
   RUN_TEST(t_1);

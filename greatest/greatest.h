@@ -3,7 +3,6 @@
 extern "C" {
 #endif
 int greatest_export(void);
-static char *greatest_get_json_report();
 
 /* 1.5.0 */
 #define GREATEST_VERSION_MAJOR    1

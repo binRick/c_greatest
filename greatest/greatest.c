@@ -1,20 +1,17 @@
-#include "greatest/greatest.h"
-#include "parson.h"
 #include <ctype.h>
 #include <dirent.h>
 #include <getopt.h>
 #include <libgen.h>
 #include <stdbool.h>
-#include <stdbool.h>
-#include <stdio.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdlib.h>
-#include <string.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+//////////////////////////////////
+#include "greatest/greatest.h"
+#include "parson.h"
 extern greatest_run_info greatest_info;
 
 int greatest_export(void){
@@ -22,7 +19,7 @@ int greatest_export(void){
   return(0);
 }
 
-static char *greatest_get_json_report(){
+char *greatest_get_json_report(){
   char        *s           = NULL;
   JSON_Value  *root_value  = json_value_init_object();
   JSON_Object *root_object = json_value_get_object(root_value);
